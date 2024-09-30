@@ -20,13 +20,12 @@ def evaluate_ad_density_and_count(image_path):
 
     # Define the prompt
     prompt = (
-        "Evaluate the ad density of the website based on the screenshot. "
-        "Return:\n"
-        "Ad Density Score: low, medium, or high\n"
-        "Explanation: Provide a full explanation of why you assigned that score.\n"
-        "Ad Count: The total number of ads present in the screenshot.\n"
-        "Count Explanation: Provide a full explanation of how you determined the number of ads.\n"
-        "Please format your response exactly as above."
+        "Evaluate the ad density of the website based on the screenshot.\n\n"
+        "Please return your response in the following format exactly:\n\n"
+        "Ad Density Score: <low/medium/high>\n"
+        "Explanation: <Provide a full explanation of why you assigned that score.>\n"
+        "Ad Count: <Number of ads detected in the screenshot>\n"
+        "Count Explanation: <Provide a full explanation of how you determined the number of ads.>\n"
     )
 
     # Create the completion
@@ -51,6 +50,8 @@ def evaluate_ad_density_and_count(image_path):
     return response_text
 
 def extract_score(score_text):
+    if not score_text:
+        return None
     possible_scores = ["low", "medium", "high"]
     score_text_lower = score_text.lower()
     for score in possible_scores:
@@ -73,12 +74,27 @@ def parse_response(response_text):
 
     if score_match:
         ad_density_score = score_match.group(1).strip()
+    else:
+        st.error("Could not extract Ad Density Score from the response.")
+        st.write("Response Text:", response_text)
+
     if explanation_match:
         ad_density_explanation = explanation_match.group(1).strip()
+    else:
+        st.error("Could not extract Explanation from the response.")
+        st.write("Response Text:", response_text)
+
     if count_match:
         ad_count = int(count_match.group(1))
+    else:
+        st.error("Could not extract Ad Count from the response.")
+        st.write("Response Text:", response_text)
+
     if count_explanation_match:
         ad_count_explanation = count_explanation_match.group(1).strip()
+    else:
+        st.error("Could not extract Count Explanation from the response.")
+        st.write("Response Text:", response_text)
 
     return ad_density_score, ad_density_explanation, ad_count, ad_count_explanation
 
