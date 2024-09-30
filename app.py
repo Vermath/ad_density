@@ -73,11 +73,33 @@ def get_image_files(directory):
 def main():
     st.title("Ad Density Evaluation Tool")
 
+    # Instructions
+    st.markdown("""
+    ## Instructions
+
+    - **File Naming:** Ensure that the screenshots in both zip files are named identically. For example, if you have a screenshot named `example_site.png` in the 'before' zip, there should be a screenshot with the same name in the 'after' zip.
+    - **Zip Files:** Only upload zip files named appropriately for 'before' and 'after' evaluations.
+    - **Upload Files:**
+        - Use the file uploaders below to upload your 'before' and 'after' zip files.
+    - **Submit:**
+        - Click the **Submit** button when you're ready to start the evaluation.
+        - Alternatively, check the **Submit as soon as the upload is finished** checkbox if you want the evaluation to start automatically after both files are uploaded.
+    - **Disclaimer:**
+        - Please note that AI models can sometimes be incorrect. Always use caution and apply common sense when interpreting the results.
+    """)
+
     # File uploaders for the 'before' and 'after' zip files
     before_zip = st.file_uploader("Upload 'Before' Zip File", type='zip')
     after_zip = st.file_uploader("Upload 'After' Zip File", type='zip')
 
-    if before_zip and after_zip:
+    # Auto-submit checkbox
+    auto_submit = st.checkbox("Submit as soon as the upload is finished")
+
+    # Submit button
+    submit_button = st.button("Submit")
+
+    # Condition to start processing
+    if before_zip and after_zip and (auto_submit or submit_button):
         with tempfile.TemporaryDirectory() as tmpdir:
             # Extract 'before' zip file
             before_dir = os.path.join(tmpdir, 'before')
@@ -97,6 +119,10 @@ def main():
             all_sites = set(before_sites.keys()).union(after_sites.keys())
 
             results = []
+
+            progress_bar = st.progress(0)
+            total_sites = len(all_sites)
+            current_site = 0
 
             for site in all_sites:
                 before_score = None
@@ -121,6 +147,9 @@ def main():
                     'Before Explanation': before_explanation,
                     'After Explanation': after_explanation
                 })
+
+                current_site += 1
+                progress_bar.progress(current_site / total_sites)
 
             # Create a DataFrame and display it
             df = pd.DataFrame(results)
