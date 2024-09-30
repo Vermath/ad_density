@@ -41,6 +41,16 @@ def evaluate_ad_density(image_path):
     score = response.choices[0].message.content.strip().lower()
     return score
 
+def get_image_files(directory):
+    image_files = {}
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            # Check if the file is an image
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                site_name = os.path.splitext(file)[0]
+                image_files[site_name] = os.path.join(root, file)
+    return image_files
+
 def main():
     st.title("Ad Density Evaluation Tool")
 
@@ -62,9 +72,9 @@ def main():
             with zipfile.ZipFile(after_zip, 'r') as zip_ref:
                 zip_ref.extractall(after_dir)
 
-            # Get list of site names from the filenames
-            before_sites = {os.path.splitext(f)[0]: os.path.join(before_dir, f) for f in os.listdir(before_dir)}
-            after_sites = {os.path.splitext(f)[0]: os.path.join(after_dir, f) for f in os.listdir(after_dir)}
+            # Get image files from the directories
+            before_sites = get_image_files(before_dir)
+            after_sites = get_image_files(after_dir)
             all_sites = set(before_sites.keys()).union(after_sites.keys())
 
             results = []
