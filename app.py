@@ -6,6 +6,7 @@ import base64
 import mimetypes
 import pandas as pd
 from openai import OpenAI
+import re
 
 # Initialize OpenAI client using Streamlit secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -18,7 +19,11 @@ def evaluate_ad_density(image_path):
     img_type = mimetypes.guess_type(image_path)[0] or 'image/png'
 
     # Define the prompt
-    prompt = "Evaluate the ad density of the website based on the screenshot and return a score of low, medium, or high."
+    prompt = (
+        "Evaluate the ad density of the website based on the screenshot. "
+        "Return a score of low, medium, or high, and provide a full explanation "
+        "of why you assigned that score."
+    )
 
     # Create the completion
     response = client.chat.completions.create(
@@ -37,9 +42,23 @@ def evaluate_ad_density(image_path):
         ],
     )
 
-    # Extract the score
-    score = response.choices[0].message.content.strip().lower()
-    return score
+    # Extract the response text (full explanation)
+    response_text = response.choices[0].message.content.strip()
+    return response_text
+
+def extract_score(explanation):
+    possible_scores = ["low", "medium", "high"]
+    explanation_lower = explanation.lower()
+    score_found = None
+    for score in possible_scores:
+        # Use word boundaries to avoid partial matches
+        if re.search(r'\b' + re.escape(score) + r'\b', explanation_lower):
+            score_found = score
+            break
+    if score_found:
+        return f"${score_found}$"
+    else:
+        return None
 
 def get_image_files(directory):
     image_files = {}
@@ -82,19 +101,25 @@ def main():
             for site in all_sites:
                 before_score = None
                 after_score = None
+                before_explanation = None
+                after_explanation = None
 
                 if site in before_sites:
                     st.write(f"Evaluating 'before' screenshot for {site}...")
-                    before_score = evaluate_ad_density(before_sites[site])
+                    before_explanation = evaluate_ad_density(before_sites[site])
+                    before_score = extract_score(before_explanation)
 
                 if site in after_sites:
                     st.write(f"Evaluating 'after' screenshot for {site}...")
-                    after_score = evaluate_ad_density(after_sites[site])
+                    after_explanation = evaluate_ad_density(after_sites[site])
+                    after_score = extract_score(after_explanation)
 
                 results.append({
                     'Site': site,
                     'Before Score': before_score,
-                    'After Score': after_score
+                    'After Score': after_score,
+                    'Before Explanation': before_explanation,
+                    'After Explanation': after_explanation
                 })
 
             # Create a DataFrame and display it
