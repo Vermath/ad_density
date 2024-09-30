@@ -11,7 +11,7 @@ import re
 # Initialize OpenAI client using Streamlit secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-def evaluate_ad_density(image_path):
+def evaluate_ad_density_and_count(image_path):
     # Read and encode the image in base64
     with open(image_path, "rb") as image_file:
         img_data = image_file.read()
@@ -21,8 +21,12 @@ def evaluate_ad_density(image_path):
     # Define the prompt
     prompt = (
         "Evaluate the ad density of the website based on the screenshot. "
-        "Return a score of low, medium, or high, and provide a full explanation "
-        "of why you assigned that score."
+        "Return:\n"
+        "Ad Density Score: low, medium, or high\n"
+        "Explanation: Provide a full explanation of why you assigned that score.\n"
+        "Ad Count: The total number of ads present in the screenshot.\n"
+        "Count Explanation: Provide a full explanation of how you determined the number of ads.\n"
+        "Please format your response exactly as above."
     )
 
     # Create the completion
@@ -42,23 +46,41 @@ def evaluate_ad_density(image_path):
         ],
     )
 
-    # Extract the response text (full explanation)
+    # Extract the response text
     response_text = response.choices[0].message.content.strip()
     return response_text
 
-def extract_score(explanation):
+def extract_score(score_text):
     possible_scores = ["low", "medium", "high"]
-    explanation_lower = explanation.lower()
-    score_found = None
+    score_text_lower = score_text.lower()
     for score in possible_scores:
-        # Use word boundaries to avoid partial matches
-        if re.search(r'\b' + re.escape(score) + r'\b', explanation_lower):
-            score_found = score
-            break
-    if score_found:
-        return f"${score_found}$"
-    else:
-        return None
+        if score in score_text_lower:
+            return f"${score}$"
+    return None
+
+def parse_response(response_text):
+    # Initialize variables
+    ad_density_score = None
+    ad_density_explanation = None
+    ad_count = None
+    ad_count_explanation = None
+
+    # Use regex to extract each section
+    score_match = re.search(r'Ad Density Score:\s*(.*?)\n', response_text, re.DOTALL)
+    explanation_match = re.search(r'Explanation:\s*(.*?)\nAd Count:', response_text, re.DOTALL)
+    count_match = re.search(r'Ad Count:\s*(\d+)', response_text)
+    count_explanation_match = re.search(r'Count Explanation:\s*(.*)', response_text, re.DOTALL)
+
+    if score_match:
+        ad_density_score = score_match.group(1).strip()
+    if explanation_match:
+        ad_density_explanation = explanation_match.group(1).strip()
+    if count_match:
+        ad_count = int(count_match.group(1))
+    if count_explanation_match:
+        ad_count_explanation = count_explanation_match.group(1).strip()
+
+    return ad_density_score, ad_density_explanation, ad_count, ad_count_explanation
 
 def get_image_files(directory):
     image_files = {}
@@ -129,23 +151,41 @@ def main():
                 after_score = None
                 before_explanation = None
                 after_explanation = None
+                before_count = None
+                after_count = None
+                before_count_explanation = None
+                after_count_explanation = None
 
                 if site in before_sites:
                     st.write(f"Evaluating 'before' screenshot for {site}...")
-                    before_explanation = evaluate_ad_density(before_sites[site])
-                    before_score = extract_score(before_explanation)
+                    response_text = evaluate_ad_density_and_count(before_sites[site])
+                    # Parse the response
+                    ad_density_score, ad_density_explanation, ad_count, ad_count_explanation = parse_response(response_text)
+                    before_score = extract_score(ad_density_score)
+                    before_explanation = ad_density_explanation
+                    before_count = ad_count
+                    before_count_explanation = ad_count_explanation
 
                 if site in after_sites:
                     st.write(f"Evaluating 'after' screenshot for {site}...")
-                    after_explanation = evaluate_ad_density(after_sites[site])
-                    after_score = extract_score(after_explanation)
+                    response_text = evaluate_ad_density_and_count(after_sites[site])
+                    # Parse the response
+                    ad_density_score, ad_density_explanation, ad_count, ad_count_explanation = parse_response(response_text)
+                    after_score = extract_score(ad_density_score)
+                    after_explanation = ad_density_explanation
+                    after_count = ad_count
+                    after_count_explanation = ad_count_explanation
 
                 results.append({
                     'Site': site,
                     'Before Score': before_score,
                     'After Score': after_score,
                     'Before Explanation': before_explanation,
-                    'After Explanation': after_explanation
+                    'After Explanation': after_explanation,
+                    'Before Count': before_count,
+                    'After Count': after_count,
+                    'Before Count Explanation': before_count_explanation,
+                    'After Count Explanation': after_count_explanation
                 })
 
                 current_site += 1
